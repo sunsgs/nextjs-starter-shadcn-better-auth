@@ -11,8 +11,6 @@ export function Providers({ children }: { children: React.ReactNode }) {
             new QueryClient({
                 defaultOptions: {
                     queries: {
-                        // Don't refetch on window focus in an admin panel —
-                        // it's distracting and these aren't real-time feeds
                         refetchOnWindowFocus: false,
                         retry: 1,
                     },

@@ -29,8 +29,6 @@ const schema = z.object({
         .max(128, 'Password must be less than 128 characters'),
 })
 
-// Next.js serializes server action errors as plain objects across the network
-// boundary — `instanceof Error` is always false on the client.
 function toMessage(err: unknown): string {
     if (typeof err === 'string') return err
     if (err && typeof err === 'object') {

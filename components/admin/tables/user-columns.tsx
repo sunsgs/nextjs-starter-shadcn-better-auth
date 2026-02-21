@@ -57,7 +57,6 @@ export function getUserColumns(actions: UserAction): ColumnDef<UserWithRole>[] {
                     </div>
                 )
             },
-            // Searching by name also matches email — covers the single search box
             filterFn: (row, _, filterValue: string) => {
                 const q = filterValue.toLowerCase()
                 return (
@@ -186,8 +185,8 @@ export function getUserColumns(actions: UserAction): ColumnDef<UserWithRole>[] {
                                             : actions.onBan(user)
                                     }
                                     className={`gap-2 cursor-pointer ${!user.banned
-                                            ? "text-destructive focus:text-destructive"
-                                            : ""
+                                        ? "text-destructive focus:text-destructive"
+                                        : ""
                                         }`}
                                 >
                                     <Ban className="h-4 w-4" />

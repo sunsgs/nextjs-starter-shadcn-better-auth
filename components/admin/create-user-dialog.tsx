@@ -33,8 +33,6 @@ const schema = z.object({
     role: z.enum(['user', 'admin']),
 })
 
-// Next.js serializes server action errors as plain objects across the network
-// boundary — `instanceof Error` is always false on the client.
 function toMessage(err: unknown): string {
     if (typeof err === 'string') return err
     if (err && typeof err === 'object') {

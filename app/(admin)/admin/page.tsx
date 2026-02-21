@@ -1,4 +1,3 @@
-// app/admin/page.tsx
 import { AdminContent } from '@/components/admin/admin-content'
 import { getUsersCount } from '@/lib/actions/admin/user-actions'
 import { auth } from '@/lib/auth'

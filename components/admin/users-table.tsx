@@ -75,8 +75,6 @@ export const userQueryKeys = {
     list: () => [...userQueryKeys.all, "list"] as const,
 }
 
-// ── Component ─────────────────────────────────────────────────────────────────
-
 export function UsersTable() {
     const queryClient = useQueryClient()
     const [confirmState, setConfirmState] = useState<ConfirmState>({

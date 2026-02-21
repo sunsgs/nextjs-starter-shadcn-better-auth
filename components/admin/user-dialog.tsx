@@ -32,7 +32,6 @@ import { toast } from 'sonner'
 import { z } from 'zod'
 import { userQueryKeys } from './users-table'
 
-// ── Schema ────────────────────────────────────────────────────────────────────
 
 const schema = z.object({
     name: z.string().min(2, 'Name must be at least 2 characters'),
@@ -44,10 +43,6 @@ const schema = z.object({
     role: z.enum(['user', 'admin']),
 })
 
-// ── Helper ────────────────────────────────────────────────────────────────────
-
-// Next.js serializes server action errors as plain objects across the network
-// boundary — `instanceof Error` is always false on the client.
 function toMessage(err: unknown, fallback: string): string {
     if (typeof err === 'string') return err
     if (err && typeof err === 'object' && 'message' in err) {
@@ -57,15 +52,11 @@ function toMessage(err: unknown, fallback: string): string {
     return fallback
 }
 
-// ── Types ─────────────────────────────────────────────────────────────────────
-
 type Mode = 'setup' | 'create'
 
 interface UserDialogProps {
     mode: Mode
 }
-
-// ── Component ─────────────────────────────────────────────────────────────────
 
 export function UserDialog({ mode }: UserDialogProps) {
     const isSetup = mode === 'setup'
@@ -78,8 +69,6 @@ export function UserDialog({ mode }: UserDialogProps) {
             name: '',
             email: '',
             password: '',
-            // Setup always creates admin — lock it in defaultValues so the
-            // hidden field still validates correctly
             role: (isSetup ? 'admin' : 'user') as 'user' | 'admin',
         },
         validators: {

@@ -111,7 +111,6 @@ export function SignInForm({ className }: React.ComponentProps<'div'>) {
                                                 onChange={(e) => field.handleChange(e.target.value)}
                                                 aria-invalid={isInvalid}
                                                 placeholder="name@example.com"
-                                                // ✅ FIX 6: Use proper autocomplete tokens.
                                                 autoComplete="email"
                                             />
                                             {isInvalid && (

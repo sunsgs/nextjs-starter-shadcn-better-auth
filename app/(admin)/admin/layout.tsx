@@ -30,7 +30,9 @@ export default function AdminLayout({
         >
           {/* QueryClient lives here — available to all admin client components */}
           <Providers>
-            {children}
+            <div className='max-w-5xl mx-auto px-4 py-8'>
+              {children}
+            </div>
             {/* Toaster here so toasts work everywhere in the admin shell */}
             <Toaster richColors closeButton />
           </Providers>

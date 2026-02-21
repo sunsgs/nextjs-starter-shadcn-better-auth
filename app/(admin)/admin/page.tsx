@@ -14,8 +14,6 @@ export default async function AdminPage() {
     }
 
     return (
-        <div className="p-8">
-            <AdminContent newInstallation={newInstallation} />
-        </div>
+        <AdminContent newInstallation={newInstallation} />
     )
 }

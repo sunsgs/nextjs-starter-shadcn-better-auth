@@ -22,6 +22,7 @@ import { cn } from '@/lib/utils'
 import { useForm } from '@tanstack/react-form'
 import { AlertCircleIcon } from 'lucide-react'
 import { useRouter } from 'next/navigation'
+import { useState } from 'react'
 import { z } from 'zod'
 
 const formSchema = z.object({
@@ -33,8 +34,9 @@ const formSchema = z.object({
 })
 
 export function SignInForm({ className }: React.ComponentProps<'div'>) {
-    const router = useRouter()
+    const [error, setError] = useState<string | null>(null)
 
+    const router = useRouter()
     const form = useForm({
         defaultValues: {
             email: '',
@@ -42,24 +44,23 @@ export function SignInForm({ className }: React.ComponentProps<'div'>) {
         },
         validators: {
             onSubmit: formSchema,
-            onSubmitAsync: async ({ value }) => {
-                const { error } = await authClient.signIn.email({
-                    email: value.email,
-                    password: value.password,
-                })
+        },
+        onSubmit: async ({ value }) => {
+            setError(null)
+            const { data, error } = await authClient.signIn.email({
+                email: value.email,
+                password: value.password,
+            })
 
-                if (error) {
-                    const message =
-                        error.code === 'EMAIL_NOT_VERIFIED'
-                            ? 'Please verify your email before signing in.'
-                            : (error.message ?? 'An error occurred while signing in. Please try again.')
-
-                    return { form: message, fields: {} }
-                }
-
+            if (error)
+                setError(
+                    error.message ??
+                    'An error occurred while signing in. Please try again.',
+                )
+            if (data) {
                 form.reset()
-                router.push('/headcode')
-            },
+                router.push('/admin')
+            }
         },
     })
 
@@ -77,16 +78,12 @@ export function SignInForm({ className }: React.ComponentProps<'div'>) {
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
-                    <form.Subscribe selector={(state) => state.errorMap.onSubmit}>
-                        {(submitError) =>
-                            submitError ? (
-                                <Alert className="mb-4" variant="destructive">
-                                    <AlertCircleIcon />
-                                    <AlertTitle>{submitError as string}</AlertTitle>
-                                </Alert>
-                            ) : null
-                        }
-                    </form.Subscribe>
+                    {error && (
+                        <Alert className="mb-4" variant="destructive">
+                            <AlertCircleIcon />
+                            <AlertTitle>{error}</AlertTitle>
+                        </Alert>
+                    )}
                     <form
                         id="sign-in-form"
                         onSubmit={(e) => {

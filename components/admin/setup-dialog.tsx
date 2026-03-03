@@ -14,20 +14,12 @@ import { Input } from '@/components/ui/input'
 import { Spinner } from '@/components/ui/spinner'
 import { setupFirstAdmin } from '@/lib/actions/admin/setup-actions'
 import { authClient } from '@/lib/auth-client'
+import { userFormSchema } from '@/lib/zod-schemas'
 import { useForm } from '@tanstack/react-form'
 import { AlertCircleIcon } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { z } from 'zod'
 
-const schema = z.object({
-    name: z.string().min(2, 'Name must be at least 2 characters'),
-    email: z.email('Invalid email address'),
-    password: z
-        .string()
-        .min(8, 'Password must be at least 8 characters')
-        .max(128, 'Password must be less than 128 characters'),
-})
 
 function toMessage(err: unknown): string {
     if (typeof err === 'string') return err
@@ -45,7 +37,7 @@ export function SetupDialog() {
     const form = useForm({
         defaultValues: { name: '', email: '', password: '' },
         validators: {
-            onSubmit: schema,
+            onSubmit: userFormSchema,
             onSubmitAsync: async ({ value }) => {
                 try {
                     await setupFirstAdmin(value)

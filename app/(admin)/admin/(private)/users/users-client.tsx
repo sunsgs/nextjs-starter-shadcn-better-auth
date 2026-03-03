@@ -3,11 +3,11 @@
 import { UserDialog } from '@/components/admin/user-dialog'
 import { UsersTable } from '@/components/admin/users-table'
 
-interface AdminContentProps {
+interface UsersClientProps {
     newInstallation: boolean
 }
 
-export function AdminContent({ newInstallation }: AdminContentProps) {
+export function UsersClient({ newInstallation }: UsersClientProps) {
     if (newInstallation) {
         return (
             <div className="flex min-h-[60vh] items-center justify-center">

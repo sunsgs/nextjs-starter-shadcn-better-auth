@@ -23,25 +23,14 @@ import {
 import { Spinner } from '@/components/ui/spinner'
 import { setupFirstAdmin } from '@/lib/actions/admin/setup-actions'
 import { authClient } from '@/lib/auth-client'
+import { userFormSchema } from '@/lib/zod-schemas'
 import { useForm } from '@tanstack/react-form'
 import { useQueryClient } from '@tanstack/react-query'
 import { AlertCircleIcon, PlusIcon } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 import { toast } from 'sonner'
-import { z } from 'zod'
 import { userQueryKeys } from './users-table'
-
-
-const schema = z.object({
-    name: z.string().min(2, 'Name must be at least 2 characters'),
-    email: z.email('Invalid email address'),
-    password: z
-        .string()
-        .min(8, 'Password must be at least 8 characters')
-        .max(128, 'Password must be less than 128 characters'),
-    role: z.enum(['user', 'admin']),
-})
 
 function toMessage(err: unknown, fallback: string): string {
     if (typeof err === 'string') return err
@@ -72,7 +61,7 @@ export function UserDialog({ mode }: UserDialogProps) {
             role: (isSetup ? 'admin' : 'user') as 'user' | 'admin',
         },
         validators: {
-            onSubmit: schema,
+            onSubmit: userFormSchema,
             onSubmitAsync: async ({ value }) => {
                 if (isSetup) {
                     try {

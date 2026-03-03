@@ -19,19 +19,14 @@ import { Input } from '@/components/ui/input'
 import { Spinner } from '@/components/ui/spinner'
 import { authClient } from '@/lib/auth-client'
 import { cn } from '@/lib/utils'
+import { userFormSchema } from '@/lib/zod-schemas'
 import { useForm } from '@tanstack/react-form'
 import { AlertCircleIcon } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
-import { z } from 'zod'
 
-const formSchema = z.object({
-    email: z.email('Invalid email address'),
-    password: z
-        .string()
-        .min(8, 'Password must be at least 8 characters')
-        .max(128, 'Password must be less than 128 characters'),
-})
+const formSchema = userFormSchema.omit({ role: true, name: true });
+
 
 export function SignInForm({ className }: React.ComponentProps<'div'>) {
     const [error, setError] = useState<string | null>(null)

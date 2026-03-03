@@ -9,3 +9,12 @@ export const userFormSchema = z.object({
     .max(128, "Password must be less than 128 characters"),
   role: z.enum(["user", "admin"]),
 });
+
+export const editUserFormSchema = userFormSchema.extend({
+  password: z
+    .string()
+    .refine(
+      (val) => val === "" || (val.length >= 8 && val.length <= 128),
+      "Password must be at least 8 characters",
+    ),
+});

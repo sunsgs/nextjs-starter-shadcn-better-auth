@@ -17,6 +17,7 @@ import {
   MoreHorizontal,
   Pencil,
   Shield,
+  ShieldAlert,
   ShieldOff,
   Trash2,
   UserCheck,
@@ -26,27 +27,32 @@ import {
 
 export interface UserColumnOptions {
   onImpersonate: (user: UserWithRole) => void;
-  onPromote: (user: UserWithRole) => void;
+  onPromoteAdmin: (user: UserWithRole) => void;
+  onPromoteSuperadmin: (user: UserWithRole) => void;
   onDemote: (user: UserWithRole) => void;
   onBan: (user: UserWithRole) => void;
   onUnban: (user: UserWithRole) => void;
   onEdit: (user: UserWithRole) => void;
   onDelete: (user: UserWithRole) => void;
-  isAdmin: boolean; // current session user is admin
+  currentUserRole: string;
   isPending: boolean;
 }
 
 export function getUserColumns({
   onImpersonate,
-  onPromote,
+  onPromoteAdmin,
+  onPromoteSuperadmin,
   onDemote,
   onBan,
   onUnban,
   onEdit,
   onDelete,
-  isAdmin: currentUserIsAdmin,
+  currentUserRole,
   isPending,
 }: UserColumnOptions): ColumnDef<UserWithRole>[] {
+  const isSuperAdmin = currentUserRole === "superadmin";
+  const isAdmin = currentUserRole === "admin" || isSuperAdmin;
+
   return [
     {
       accessorKey: "name",
@@ -54,7 +60,6 @@ export function getUserColumns({
       cell: ({ row }) => (
         <span className="font-medium">{row.getValue("name")}</span>
       ),
-      // custom filterFn covers both name and email for the search column
       filterFn: (row, _, filterValue: string) => {
         const name = row.getValue<string>("name")?.toLowerCase() ?? "";
         const email = row.original.email?.toLowerCase() ?? "";
@@ -77,7 +82,16 @@ export function getUserColumns({
       cell: ({ row }) => {
         const role = row.getValue<string>("role");
         return (
-          <Badge variant={role === "admin" ? "default" : "secondary"}>
+          <Badge
+            variant={
+              role === "superadmin"
+                ? "default"
+                : role === "admin"
+                  ? "secondary"
+                  : "outline"
+            }
+          >
+            {role === "superadmin" && <ShieldAlert className="h-3 w-3 mr-1" />}
             {role}
           </Badge>
         );
@@ -108,7 +122,9 @@ export function getUserColumns({
       id: "actions",
       cell: ({ row }) => {
         const u = row.original;
-        const rowUserIsAdmin = u.role === "admin";
+        const targetIsSuperAdmin = u.role === "superadmin";
+        const locked = targetIsSuperAdmin && !isSuperAdmin;
+        const hasAdminRole = u.role === "admin" || u.role === "superadmin";
 
         return (
           <DropdownMenu>
@@ -118,60 +134,81 @@ export function getUserColumns({
                 <span className="sr-only">Open menu</span>
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-xl">
+            <DropdownMenuContent align="end">
               <DropdownMenuLabel>Actions</DropdownMenuLabel>
               <DropdownMenuSeparator />
 
-              <DropdownMenuItem onClick={() => onEdit(u)}>
-                <Pencil className="h-4 w-4 mr-2" />
-                Edit
-              </DropdownMenuItem>
-
-              <DropdownMenuItem onClick={() => onImpersonate(u)}>
-                <UserCog className="h-4 w-4 mr-2" />
-                Impersonate
-              </DropdownMenuItem>
-
-              {u.banned ? (
-                <DropdownMenuItem onClick={() => onUnban(u)}>
-                  <UserCheck className="h-4 w-4 mr-2" />
-                  Unban
+              {locked ? (
+                <DropdownMenuItem disabled>
+                  <ShieldAlert className="h-4 w-4 mr-2 text-muted-foreground" />
+                  <span className="text-muted-foreground">
+                    Superadmin protected
+                  </span>
                 </DropdownMenuItem>
               ) : (
-                <DropdownMenuItem
-                  className="text-amber-600 focus:text-amber-600"
-                  onClick={() => onBan(u)}
-                >
-                  <UserX className="h-4 w-4 mr-2" />
-                  Ban
-                </DropdownMenuItem>
-              )}
-              <DropdownMenuSeparator />
-
-              {rowUserIsAdmin ? (
-                <DropdownMenuItem
-                  variant="destructive"
-                  onClick={() => onDemote(u)}
-                >
-                  <ShieldOff className="h-4 w-4 mr-2" />
-                  Demote to User
-                </DropdownMenuItem>
-              ) : (
-                <DropdownMenuItem onClick={() => onPromote(u)}>
-                  <Shield className="h-4 w-4 mr-2" />
-                  Promote to Admin
-                </DropdownMenuItem>
-              )}
-
-              {currentUserIsAdmin && (
                 <>
-                  <DropdownMenuItem
-                    variant="destructive"
-                    onClick={() => onDelete(u)}
-                  >
-                    <Trash2 className="h-4 w-4 mr-2" />
-                    Delete
+                  <DropdownMenuItem onClick={() => onEdit(u)}>
+                    <Pencil className="h-4 w-4 mr-2" />
+                    Edit
                   </DropdownMenuItem>
+
+                  {!(u.role === "superadmin" && !isSuperAdmin) && (
+                    <DropdownMenuItem onClick={() => onImpersonate(u)}>
+                      <UserCog className="h-4 w-4 mr-2" />
+                      Impersonate
+                    </DropdownMenuItem>
+                  )}
+
+                  {u.banned ? (
+                    <DropdownMenuItem onClick={() => onUnban(u)}>
+                      <UserCheck className="h-4 w-4 mr-2" />
+                      Unban
+                    </DropdownMenuItem>
+                  ) : (
+                    <DropdownMenuItem
+                      className="text-amber-600 focus:text-amber-600"
+                      onClick={() => onBan(u)}
+                    >
+                      <UserX className="h-4 w-4 mr-2" />
+                      Ban
+                    </DropdownMenuItem>
+                  )}
+
+                  {hasAdminRole ? (
+                    // Already admin or superadmin — show demote
+                    <DropdownMenuItem onClick={() => onDemote(u)}>
+                      <ShieldOff className="h-4 w-4 mr-2" />
+                      Demote to User
+                    </DropdownMenuItem>
+                  ) : (
+                    // Plain user — show promote to admin
+                    <DropdownMenuItem onClick={() => onPromoteAdmin(u)}>
+                      <Shield className="h-4 w-4 mr-2" />
+                      Promote to Admin
+                    </DropdownMenuItem>
+                  )}
+
+                  {/* Promote to superadmin — only superadmins can see this,
+                      only on non-superadmin targets */}
+                  {isSuperAdmin && !targetIsSuperAdmin && (
+                    <DropdownMenuItem onClick={() => onPromoteSuperadmin(u)}>
+                      <ShieldAlert className="h-4 w-4 mr-2" />
+                      Promote to Superadmin
+                    </DropdownMenuItem>
+                  )}
+
+                  {isAdmin && (
+                    <>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        className="text-destructive focus:text-destructive"
+                        onClick={() => onDelete(u)}
+                      >
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        Delete
+                      </DropdownMenuItem>
+                    </>
+                  )}
                 </>
               )}
             </DropdownMenuContent>

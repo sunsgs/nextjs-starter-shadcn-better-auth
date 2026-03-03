@@ -11,12 +11,13 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Spinner } from "@/components/ui/spinner";
-import { deleteUser, updateUser } from "@/lib/actions/admin/user-actions";
+import { updateUser } from "@/lib/actions/admin/user-actions";
 import { authClient } from "@/lib/auth-client";
 import { getErrorMessage } from "@/lib/utils/user";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { UserWithRole } from "better-auth/plugins";
 import { AlertTriangle, RefreshCw, Users } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
 import { DataTable } from "./tables/data-table";
@@ -24,12 +25,14 @@ import { getUserColumns } from "./tables/user-columns";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
-type UserRole = "user" | "admin";
+type AdminRole = "admin" | "superadmin";
+
 type ConfirmAction =
   | "impersonate"
   | "ban"
   | "unban"
-  | "promote"
+  | "promoteAdmin"
+  | "promoteSuperadmin"
   | "demote"
   | "delete";
 
@@ -66,14 +69,19 @@ const confirmCopy: Record<
     description: (name) => `${name} will regain access to their account.`,
     label: "Unban",
   },
-  promote: {
+  promoteAdmin: {
     title: "Promote to Admin",
     description: (name) => `${name} will have full admin privileges.`,
-    label: "Promote",
+    label: "Promote to Admin",
+  },
+  promoteSuperadmin: {
+    title: "Promote to Superadmin",
+    description: (name) => `${name} will have unrestricted superadmin access.`,
+    label: "Promote to Superadmin",
   },
   demote: {
     title: "Demote to User",
-    description: (name) => `${name} will lose admin access.`,
+    description: (name) => `${name} will lose all admin access.`,
     label: "Demote",
     destructive: true,
   },
@@ -96,9 +104,12 @@ export const userQueryKeys = {
 // ── Component ──────────────────────────────────────────────────────────────
 
 export function UsersTable() {
+  const router = useRouter();
+
   const queryClient = useQueryClient();
-  const { data: currentSession } = authClient.useSession();
-  const isAdmin = currentSession?.user.role === "admin";
+  const { data: currentSession, refetch: refetchSession } =
+    authClient.useSession();
+  const currentUserRole = (currentSession?.user.role ?? "user") as string;
 
   const [confirmState, setConfirmState] = useState<ConfirmState>({
     open: false,
@@ -107,7 +118,7 @@ export function UsersTable() {
   });
   const [editingUser, setEditingUser] = useState<UserWithRole | null>(null);
 
-  // ── Queries ──────────────────────────────────────────────────────────────
+  // ── Queries ───────────────────────────────────────────────────────────────
 
   const { data, isLoading, isFetching, refetch } = useQuery({
     queryKey: userQueryKeys.list(),
@@ -128,20 +139,23 @@ export function UsersTable() {
 
   const impersonateMutation = useMutation({
     mutationFn: async (user: UserWithRole) => {
+      if (user.role === "superadmin" && currentUserRole !== "superadmin") {
+        throw new Error("Only a superadmin can impersonate another superadmin");
+      }
       const { error } = await authClient.admin.impersonateUser({
         userId: user.id,
       });
       if (error) throw new Error(error.message ?? "Impersonation failed");
       return user;
     },
-    onSuccess: (user) =>
+    onSuccess: async (user) => {
+      await refetchSession(); // ← banner appears immediately
+      router.refresh(); // ← refresh server components
       toast.success(`Now impersonating ${user.name}`, {
-        description: "You are acting as this user.",
-        action: {
-          label: "Stop",
-          onClick: () => stopImpersonateMutation.mutate(),
-        },
-      }),
+        description:
+          "A banner will appear at the top — click Stop to end the session.",
+      });
+    },
     onError: (err: unknown) =>
       toast.error("Impersonation failed", {
         description: getErrorMessage(err),
@@ -178,13 +192,14 @@ export function UsersTable() {
     onSettled: closeConfirm,
   });
 
-  const roleMutation = useMutation({
+  // setRole — promotes to admin-level role
+  const promoteMutation = useMutation({
     mutationFn: async ({
       user,
       role,
     }: {
       user: UserWithRole;
-      role: UserRole;
+      role: AdminRole;
     }) => {
       const { error } = await authClient.admin.setRole({
         userId: user.id,
@@ -198,15 +213,36 @@ export function UsersTable() {
       invalidate();
     },
     onError: (err: unknown) =>
-      toast.error("Failed to update role", {
-        description: getErrorMessage(err),
-      }),
+      toast.error("Failed to promote", { description: getErrorMessage(err) }),
     onSettled: closeConfirm,
   });
 
+  // setRole with "user" — demotes back to base role
+  // "as unknown as AdminRole" is a TS workaround: API accepts "user" at runtime
+  // but the type is constrained to adminRoles when custom roles are defined
+  const demoteMutation = useMutation({
+    mutationFn: async (user: UserWithRole) => {
+      const { error } = await authClient.admin.setRole({
+        userId: user.id,
+        role: "user" as unknown as AdminRole,
+      });
+      if (error) throw new Error(error.message);
+      return user;
+    },
+    onSuccess: (user) => {
+      toast.success(`${user.name} has been demoted to user`);
+      invalidate();
+    },
+    onError: (err: unknown) =>
+      toast.error("Failed to demote", { description: getErrorMessage(err) }),
+    onSettled: closeConfirm,
+  });
+
+  // removeUser — Better Auth cascades session + account cleanup automatically
   const deleteMutation = useMutation({
     mutationFn: async (user: UserWithRole) => {
-      await deleteUser(user.id);
+      const { error } = await authClient.admin.removeUser({ userId: user.id });
+      if (error) throw new Error(error.message);
       return user;
     },
     onSuccess: (user) => {
@@ -224,7 +260,12 @@ export function UsersTable() {
       data,
     }: {
       user: UserWithRole;
-      data: { name: string; email: string; role: "user" | "admin" };
+      data: {
+        name: string;
+        email: string;
+        role: "user" | "admin" | "superadmin";
+        password?: string;
+      };
     }) => {
       await updateUser(user.id, data);
       return user;
@@ -243,7 +284,8 @@ export function UsersTable() {
   const isPending =
     impersonateMutation.isPending ||
     banMutation.isPending ||
-    roleMutation.isPending ||
+    promoteMutation.isPending ||
+    demoteMutation.isPending ||
     deleteMutation.isPending;
 
   function openConfirm(user: UserWithRole, action: ConfirmAction) {
@@ -257,6 +299,7 @@ export function UsersTable() {
   function handleConfirm() {
     const { user, action } = confirmState;
     if (!user || !action) return;
+
     switch (action) {
       case "impersonate":
         impersonateMutation.mutate(user);
@@ -265,11 +308,14 @@ export function UsersTable() {
       case "unban":
         banMutation.mutate(user);
         break;
-      case "promote":
-        roleMutation.mutate({ user, role: "admin" });
+      case "promoteAdmin":
+        promoteMutation.mutate({ user, role: "admin" });
+        break;
+      case "promoteSuperadmin":
+        promoteMutation.mutate({ user, role: "superadmin" });
         break;
       case "demote":
-        roleMutation.mutate({ user, role: "user" });
+        demoteMutation.mutate(user);
         break;
       case "delete":
         deleteMutation.mutate(user);
@@ -279,13 +325,14 @@ export function UsersTable() {
 
   const columns = getUserColumns({
     onImpersonate: (u) => openConfirm(u, "impersonate"),
-    onPromote: (u) => openConfirm(u, "promote"),
+    onPromoteAdmin: (u) => openConfirm(u, "promoteAdmin"),
+    onPromoteSuperadmin: (u) => openConfirm(u, "promoteSuperadmin"),
     onDemote: (u) => openConfirm(u, "demote"),
     onBan: (u) => openConfirm(u, "ban"),
     onUnban: (u) => openConfirm(u, "unban"),
     onEdit: (u) => setEditingUser(u),
     onDelete: (u) => openConfirm(u, "delete"),
-    isAdmin,
+    currentUserRole,
     isPending,
   });
 

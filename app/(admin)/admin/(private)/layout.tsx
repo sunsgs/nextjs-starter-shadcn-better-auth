@@ -1,3 +1,4 @@
+import { ImpersonationBanner } from "@/components/admin/impersonating-banner";
 import { Nav } from "@/components/admin/nav";
 import { requireSession } from "@/lib/auth/session";
 
@@ -6,10 +7,12 @@ export default async function Layout({
 }: {
   children: React.ReactNode;
 }) {
-  const sesssion = await requireSession();
+  const session = await requireSession();
   return (
     <>
-      <Nav role={sesssion.user.role || "user"} />
+      <ImpersonationBanner />
+      <Nav role={session.user.role ?? "user"} />{" "}
+      {/* ← pass down, no client fetch */}
       {children}
     </>
   );
